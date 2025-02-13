@@ -10,13 +10,12 @@ process callVariants {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    
+    file("${params.ref}")
     file("${params.bam}")
     file("${params.bam}.bai")
-    file("${params.ref}")
 
     output:
-    file("${sample}.raw_variants.vcf")
+    path '*'
 
     script:
     """
@@ -38,7 +37,7 @@ process extractSNPs {
     file("${sample}.raw_variants.vcf")
 
     output:
-    file("${sample}.raw_snps.vcf")
+    path '*'
 
     script:
     """
@@ -60,7 +59,7 @@ process extractIndels {
     file("${sample}.raw_variants.vcf")
 
     output:
-    file("${sample}.raw_indels.vcf")
+    path '*'
 
     script:
     """
@@ -82,7 +81,7 @@ process filterSNPs {
     file("${sample}.raw_snps.vcf")
 
     output:
-    file("${sample}.filtered_snps.vcf")
+    path '*'
 
     script:
     """
@@ -110,7 +109,7 @@ process filterIndels {
     file("${sample}.raw_indels.vcf")
 
     output:
-    file("${sample}.filtered_indels.vcf")
+    path '*'
 
     script:
     """
@@ -133,7 +132,7 @@ process compressAndIndexSNPs {
     file("${sample}.filtered_snps.vcf")
 
     output:
-    file("${sample}.filtered_snps_final.vcf.gz")
+    path '*'
 
     script:
     """
@@ -151,7 +150,7 @@ process compressAndIndexIndels {
     file("${sample}.filtered_indels.vcf")
 
     output:
-    file("${sample}.filtered_indels_final.vcf.gz")
+    path '*'
 
     script:
     """
@@ -162,14 +161,14 @@ process compressAndIndexIndels {
 
 
 workflow {
-    foo = callVariants()
+    foo = callVariants(input: [file(params.ref), file(params.bam), file("${params.bam}.bai")])
 
-    snps = extractSNPs(foo.out.file("${sample}.raw_variants.vcf"))
-    indels = extractIndels(foo.out.file("${sample}.raw_variants.vcf"))
+    snps = extractSNPs(input: [foo.out.file("${sample}.raw_variants.vcf"), file(params.ref)])
+    indels = extractIndels(input: [foo.out.file("${sample}.raw_variants.vcf"), file(params.ref)])
 
-    filtered_snps = filterSNPs(snps.out.file("${sample}.raw_snps.vcf"))
-    filtered_indels = filterIndels(indels.out.file("${sample}.raw_indels.vcf"))
+    filtered_snps = filterSNPs(input: [snps.out.file("${sample}.raw_snps.vcf"), file(params.ref)])
+    filtered_indels = filterIndels(input: [indels.out.file("${sample}.raw_indels.vcf"), file(params.ref)])
 
-    compressAndIndexSNPs(filtered_snps.out.file("${sample}.filtered_snps.vcf"))
-    compressAndIndexIndels(filtered_indels.out.file("${sample}.filtered_indels.vcf"))
+    compressAndIndexSNPs(input: filtered_snps.out.file("${sample}.filtered_snps.vcf"))
+    compressAndIndexIndels(input: filtered_indels.out.file("${sample}.filtered_indels.vcf"))
 }
