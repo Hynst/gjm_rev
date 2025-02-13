@@ -1,13 +1,5 @@
 nextflow.enable.dsl=2
 
-//input bam file directory
-params.input = "${params.basepath}/output/bwa/filter"
-//output directory
-params.outpath = "${params.basepath}/output/gatk"
-//reference genome directory
-params.ref = "${params.basepath}/reference"
-// input bam file
-params.file = file("${params.input}/${file}.bam")
 //sample name
 sample = "GJM_rev"
 
@@ -18,8 +10,9 @@ process callVariants {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path file("${params.input}/${params.file}")
-    path ref("${params.ref}/merged_chromosomes.fa")
+    path bam("${params.bam}")
+    path bai("${params.bam}.bai")
+    path ref("${params.ref}")
 
     output:
     file("${sample}.raw_variants.vcf")
@@ -28,7 +21,7 @@ process callVariants {
     """
     gatk --java-options "-Xmx128g" HaplotypeCaller \
     -R ${ref} \
-    -I ${file} \
+    -I ${bam} \
     --output-mode EMIT_ALL_ACTIVE_SITES \
     -O ${sample}.raw_variants.vcf
     """
