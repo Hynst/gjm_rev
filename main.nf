@@ -13,7 +13,7 @@ process callVariants {
     
     file("${params.bam}")
     file("${params.bam}.bai")
-    path ref(("${params.ref}")
+    path ref("${params.ref}")
 
     output:
     file("${sample}.raw_variants.vcf")
