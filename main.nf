@@ -1,18 +1,12 @@
 nextflow.enable.dsl=2
 
-//sample name
-sample = "GJM_rev"
-
-
 process callVariants {
     container 'broadinstitute/gatk:4.2.3.0'
     
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${params.ref}")
-    file("${params.bam}")
-    file("${params.bam}.bai")
+    tuple val(sample), val(bam), val(bai)
 
     output:
     path '*'
@@ -21,7 +15,7 @@ process callVariants {
     """
     gatk --java-options "-Xmx128g" HaplotypeCaller \
     -R ${params.ref} \
-    -I ${params.bam} \
+    -I ${bam} \
     --output-mode EMIT_ALL_ACTIVE_SITES \
     -O ${sample}.raw_variants.vcf
     """
@@ -33,8 +27,7 @@ process extractSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${params.ref}")
-    file("${sample}.raw_variants.vcf")
+    file raw_vcf
 
     output:
     path '*'
@@ -55,8 +48,7 @@ process extractIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${params.ref}")
-    file("${sample}.raw_variants.vcf")
+    file raw_vcf2
 
     output:
     path '*'
@@ -77,8 +69,7 @@ process filterSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${params.ref}")
-    file("${sample}.raw_snps.vcf")
+    file raw_snps_vcf
 
     output:
     path '*'
@@ -105,8 +96,7 @@ process filterIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${params.ref}")
-    file("${sample}.raw_indels.vcf")
+    file raw_indels_vcf
 
     output:
     path '*'
@@ -129,7 +119,7 @@ process compressAndIndexSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${sample}.filtered_snps.vcf")
+    file filtered_snps_vcf
 
     output:
     path '*'
@@ -147,7 +137,7 @@ process compressAndIndexIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    file("${sample}.filtered_indels.vcf")
+    file filtered_indels_vcf
 
     output:
     path '*'
@@ -161,14 +151,35 @@ process compressAndIndexIndels {
 
 
 workflow {
-    foo = callVariants(input: [file(params.ref), file(params.bam), file("${params.bam}.bai")])
+    sample_ch = Channel.empty()
+    sample_tsv = file(params.inputs)    
+    sample_ch = extractInput(sample_tsv)
 
-    snps = extractSNPs(input: [foo.out.file("${sample}.raw_variants.vcf"), file(params.ref)])
-    indels = extractIndels(input: [foo.out.file("${sample}.raw_variants.vcf"), file(params.ref)])
+    foo = callVariants(sample_ch)
 
-    filtered_snps = filterSNPs(input: [snps.out.file("${sample}.raw_snps.vcf"), file(params.ref)])
-    filtered_indels = filterIndels(input: [indels.out.file("${sample}.raw_indels.vcf"), file(params.ref)])
+    snps = extractSNPs(foo)
+    indels = extractIndels(foo)
 
-    compressAndIndexSNPs(input: filtered_snps.out.file("${sample}.filtered_snps.vcf"))
-    compressAndIndexIndels(input: filtered_indels.out.file("${sample}.filtered_indels.vcf"))
+    filtered_snps = filterSNPs(snps)
+    filtered_indels = filterIndels(indels)
+
+    compressAndIndexSNPs(filtered_snps)
+    compressAndIndexIndels(filtered_indels)
+}
+
+def returnFile(it) {
+    if (!file(it).exists()) exit 1, "Missing file in TSV file: ${it}, see --help for more information"
+    return file(it)
+}
+
+def extractInput(tsvFile) {
+    Channel.from(tsvFile)
+        .splitCsv(sep: '\t')
+        .map { row ->           
+            def sample    = row[0]
+            def bam       = returnFile(row[1])
+            def bai       = returnFile(row[2])
+
+            [sample, bam, bai]
+        }
 }
