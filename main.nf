@@ -10,9 +10,10 @@ process callVariants {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path bam("${params.bam}")
-    path bai("${params.bam}.bai")
-    path ref("${params.ref}")
+    
+    file("${params.bam}")
+    file("${params.bam}.bai")
+    path ref(("${params.ref}")
 
     output:
     file("${sample}.raw_variants.vcf")
@@ -21,7 +22,7 @@ process callVariants {
     """
     gatk --java-options "-Xmx128g" HaplotypeCaller \
     -R ${ref} \
-    -I ${bam} \
+    -I ${params.bam} \
     --output-mode EMIT_ALL_ACTIVE_SITES \
     -O ${sample}.raw_variants.vcf
     """
@@ -33,7 +34,7 @@ process extractSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}/merged_chromosomes.fa")
+    path ref("${params.ref}")
     path vcf("${sample}.raw_variants.vcf")
 
     output:
@@ -55,7 +56,7 @@ process extractIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}/merged_chromosomes.fa")
+    path ref("${params.ref}")
     path vcf("${sample}.raw_variants.vcf")
 
     output:
@@ -77,7 +78,7 @@ process filterSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}/merged_chromosomes.fa")
+    path ref("${params.ref}")
     path vcf("${sample}.raw_snps.vcf")
 
     output:
@@ -105,7 +106,7 @@ process filterIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}/merged_chromosomes.fa")
+    path ref("${params.ref}")
     path vcf("${sample}.raw_indels.vcf")
 
     output:
