@@ -13,7 +13,7 @@ process callVariants {
     
     file("${params.bam}")
     file("${params.bam}.bai")
-    path ref("${params.ref}")
+    file("${params.ref}")
 
     output:
     file("${sample}.raw_variants.vcf")
@@ -21,7 +21,7 @@ process callVariants {
     script:
     """
     gatk --java-options "-Xmx128g" HaplotypeCaller \
-    -R ${ref} \
+    -R ${params.ref} \
     -I ${params.bam} \
     --output-mode EMIT_ALL_ACTIVE_SITES \
     -O ${sample}.raw_variants.vcf
@@ -34,8 +34,8 @@ process extractSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}")
-    path vcf("${sample}.raw_variants.vcf")
+    file("${params.ref}")
+    file("${sample}.raw_variants.vcf")
 
     output:
     file("${sample}.raw_snps.vcf")
@@ -43,8 +43,8 @@ process extractSNPs {
     script:
     """
     gatk --java-options "-Xmx128g" SelectVariants \
-    -R ${ref} \
-    -V ${vcf} \
+    -R ${params.ref} \
+    -V ${sample}.raw_variants.vcf \
     --select-type-to-include SNP \
     -O ${sample}.raw_snps.vcf
     """
@@ -56,8 +56,8 @@ process extractIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}")
-    path vcf("${sample}.raw_variants.vcf")
+    file("${params.ref}")
+    file("${sample}.raw_variants.vcf")
 
     output:
     file("${sample}.raw_indels.vcf")
@@ -65,8 +65,8 @@ process extractIndels {
     script:
     """
     gatk --java-options "-Xmx128g" SelectVariants \
-    -R ${ref} \
-    -V ${vcf} \
+    -R ${params.ref} \
+    -V ${sample}.raw_variants.vcf \
     --select-type-to-include INDEL \
     -O ${sample}.raw_indels.vcf
     """
@@ -78,8 +78,8 @@ process filterSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}")
-    path vcf("${sample}.raw_snps.vcf")
+    file("${params.ref}")
+    file("${sample}.raw_snps.vcf")
 
     output:
     file("${sample}.filtered_snps.vcf")
@@ -87,8 +87,8 @@ process filterSNPs {
     script:
     """
     gatk --java-options "-Xmx128g" VariantFiltration \
-    -R ${ref} \
-    -V ${vcf} \
+    -R ${params.ref} \
+    -V ${sample}.raw_snps.vcf \
     -O ${sample}.filtered_snps.vcf \
     -filter-name "QD_filter" -filter "QD < 2.0" \
     -filter-name "FS_filter" -filter "FS > 60.0" \
@@ -106,8 +106,8 @@ process filterIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path ref("${params.ref}")
-    path vcf("${sample}.raw_indels.vcf")
+    file("${params.ref}")
+    file("${sample}.raw_indels.vcf")
 
     output:
     file("${sample}.filtered_indels.vcf")
@@ -115,8 +115,8 @@ process filterIndels {
     script:
     """
     gatk --java-options "-Xmx128g" VariantFiltration \
-    -R ${ref} \
-    -V ${vcf} \
+    -R ${params.ref} \
+    -V ${sample}.raw_indels.vcf \
     -O ${sample}.filtered_indels.vcf \
     -filter-name "QD_filter" -filter "QD < 2.0" \
     -filter-name "FS_filter" -filter "FS > 200.0" \
@@ -130,14 +130,14 @@ process compressAndIndexSNPs {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path vcf("${sample}.filtered_snps.vcf")
+    file("${sample}.filtered_snps.vcf")
 
     output:
     file("${sample}.filtered_snps_final.vcf.gz")
 
     script:
     """
-    bcftools view ${vcf} -Oz -o ${sample}.filtered_snps_final.vcf.gz
+    bcftools view ${sample}.filtered_snps.vcf -Oz -o ${sample}.filtered_snps_final.vcf.gz
     bcftools index ${sample}.filtered_snps_final.vcf.gz
     """
 }
@@ -148,14 +148,14 @@ process compressAndIndexIndels {
     publishDir "${params.outpath}/results/", mode: 'copy'
 
     input:
-    path vcf("${sample}.filtered_indels.vcf")
+    file("${sample}.filtered_indels.vcf")
 
     output:
     file("${sample}.filtered_indels_final.vcf.gz")
 
     script:
     """
-    bcftools view ${vcf} -Oz -o ${sample}.filtered_indels_final.vcf.gz
+    bcftools view ${sample}.filtered_indels.vcf -Oz -o ${sample}.filtered_indels_final.vcf.gz
     bcftools index ${sample}.filtered_indels_final.vcf.gz
     """
 }
